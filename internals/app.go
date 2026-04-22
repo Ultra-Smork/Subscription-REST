@@ -1,0 +1,97 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/Ultra-Smork/Subscription-service/internals/config"
+	"github.com/Ultra-Smork/Subscription-service/internals/handler"
+	"github.com/Ultra-Smork/Subscription-service/internals/repository/postgres"
+	"github.com/Ultra-Smork/Subscription-service/internals/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type App struct {
+	cfg    *config.Config
+	server *http.Server
+	dbPool *pgxpool.Pool
+}
+
+func Run(ctx context.Context, cfg *config.Config) error {
+	app := &App{cfg: cfg}
+
+	if err := app.initDB(ctx); err != nil {
+		return fmt.Errorf("init db: %w", err)
+	}
+	defer app.dbPool.Close()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	repo := postgres.NewSubscriptionRepository(app.dbPool)
+	svc := service.NewSubscriptionService(repo)
+	ctrl := handler.NewSubscriptionHandler(svc, logger)
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(30 * time.Second))
+
+	// Регистрация ручек
+	router.Route("/api/v1/subscriptions", func(r chi.Router) {
+		r.Post("/", ctrl.Create)
+		r.Get("/", ctrl.List)
+		r.Get("/{id}", ctrl.GetByID)
+		r.Put("/{id}", ctrl.Update)
+		r.Delete("/{id}", ctrl.Delete)
+		r.Get("/cost", ctrl.GetTotalCost)
+	})
+
+	// Swagger TODO
+
+	// HTTP сервер
+	app.server = &http.Server{
+		Addr:         ":" + cfg.ServerPort,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Запуск сервера в горутине
+	go func() {
+		slog.Info("starting http server", "port", cfg.ServerPort)
+		if err := app.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("http server error", "error", err)
+		}
+	}()
+
+	// Ожидание сигнала завершения
+	<-ctx.Done()
+	slog.Info("shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := app.server.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("server shutdown: %w", err)
+	}
+
+	return nil
+}
+
+func (a *App) initDB(ctx context.Context) error {
+	pool, err := pgxpool.New(ctx, a.cfg.DSN())
+	if err != nil {
+		return err
+	}
+	if err := pool.Ping(ctx); err != nil {
+		return err
+	}
+	a.dbPool = pool
+	return nil
+}
