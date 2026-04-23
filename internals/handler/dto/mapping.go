@@ -4,7 +4,6 @@ import (
 	"github.com/Ultra-Smork/Subscription-service/internals/model"
 )
 
-// ToSubscriptionResponse преобразует доменную модель в DTO для ответа.
 func ToSubscriptionResponse(sub *model.Subscription) SubscriptionResponse {
 	return SubscriptionResponse{
 		ID:          sub.ID,

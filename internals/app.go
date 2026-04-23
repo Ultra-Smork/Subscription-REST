@@ -27,13 +27,18 @@ type App struct {
 func Run(ctx context.Context, cfg *config.Config) error {
 	app := &App{cfg: cfg}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	slog.Info("initializing database", "layer", "app", "host", cfg.DBHost, "port", cfg.DBPort, "database", cfg.DBName)
 	if err := app.initDB(ctx); err != nil {
+		slog.Error("database initialization failed", "layer", "app", "error", err)
 		return fmt.Errorf("init db: %w", err)
 	}
+	slog.Info("database connected", "layer", "app")
 	defer app.dbPool.Close()
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	repo := postgres.NewSubscriptionRepository(app.dbPool)
-	svc := service.NewSubscriptionService(repo)
+
+	repo := postgres.NewSubscriptionRepository(app.dbPool, logger)
+	svc := service.NewSubscriptionService(repo, logger)
 	ctrl := handler.NewSubscriptionHandler(svc, logger)
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
@@ -41,6 +46,10 @@ func Run(ctx context.Context, cfg *config.Config) error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(30 * time.Second))
+
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// Регистрация ручек
 	router.Route("/api/v1/subscriptions", func(r chi.Router) {
@@ -65,15 +74,15 @@ func Run(ctx context.Context, cfg *config.Config) error {
 
 	// Запуск сервера в горутине
 	go func() {
-		slog.Info("starting http server", "port", cfg.ServerPort)
+		slog.Info("starting http server", "layer", "app", "port", cfg.ServerPort)
 		if err := app.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("http server error", "error", err)
+			slog.Error("http server error", "layer", "app", "error", err)
 		}
 	}()
 
 	// Ожидание сигнала завершения
 	<-ctx.Done()
-	slog.Info("shutting down server...")
+	slog.Info("shutting down server", "layer", "app")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -85,13 +94,18 @@ func Run(ctx context.Context, cfg *config.Config) error {
 }
 
 func (a *App) initDB(ctx context.Context) error {
+	slog.Debug("creating database connection pool", "layer", "app")
+
 	pool, err := pgxpool.New(ctx, a.cfg.DSN())
 	if err != nil {
+		slog.Error("failed to create connection pool", "layer", "app", "error", err)
 		return err
 	}
 	if err := pool.Ping(ctx); err != nil {
+		slog.Error("database ping failed", "layer", "app", "error", err)
 		return err
 	}
+	slog.Debug("database connection pool created", "layer", "app")
 	a.dbPool = pool
 	return nil
 }
