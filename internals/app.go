@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/Ultra-Smork/Subscription-service/docs"
 	"github.com/Ultra-Smork/Subscription-service/internals/config"
 	"github.com/Ultra-Smork/Subscription-service/internals/handler"
 	"github.com/Ultra-Smork/Subscription-service/internals/repository/postgres"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type App struct {
@@ -51,7 +53,8 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// Регистрация ручек
+	router.Get("/swagger/*", httpSwagger.Handler())
+
 	router.Route("/api/v1/subscriptions", func(r chi.Router) {
 		r.Post("/", ctrl.Create)
 		r.Get("/", ctrl.List)
@@ -61,9 +64,6 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		r.Get("/cost", ctrl.GetTotalCost)
 	})
 
-	// Swagger TODO
-
-	// HTTP сервер
 	app.server = &http.Server{
 		Addr:         ":" + cfg.ServerPort,
 		Handler:      router,
@@ -72,7 +72,6 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Запуск сервера в горутине
 	go func() {
 		slog.Info("starting http server", "layer", "app", "port", cfg.ServerPort)
 		if err := app.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -80,7 +79,6 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		}
 	}()
 
-	// Ожидание сигнала завершения
 	<-ctx.Done()
 	slog.Info("shutting down server", "layer", "app")
 

@@ -11,7 +11,7 @@ type CreateSubscriptionRequest struct {
 	ServiceName string    `json:"service_name" validate:"required"`
 	Price       int       `json:"price"       validate:"required,min=0"`
 	UserID      uuid.UUID `json:"user_id"     validate:"required"`
-	StartDate   string    `json:"start_date"  validate:"required,monthyear"` // формат MM-YYYY
+	StartDate   string    `json:"start_date"  validate:"required,monthyear"`
 }
 
 type UpdateSubscriptionRequest struct {

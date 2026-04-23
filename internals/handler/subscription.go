@@ -1,3 +1,8 @@
+// @title Subscription Service API
+// @version 1.0
+// @description REST API for managing subscriptions
+// @host localhost:8085
+// @BasePath /api/v1
 package handler
 
 import (
@@ -25,6 +30,17 @@ func NewSubscriptionHandler(svc *service.SubscriptionService, logger *slog.Logge
 	}
 }
 
+// Create subscription
+// @Summary Create a new subscription
+// @Description Creates a new subscription for a user with service details
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateSubscriptionRequest true "Subscription data"
+// @Success 201 {object} dto.SubscriptionResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions [post]
 func (h *SubscriptionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("create subscription request received", "layer", "handler")
 
@@ -57,6 +73,17 @@ func (h *SubscriptionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, dto.ToSubscriptionResponse(sub))
 }
 
+// Get subscription by ID
+// @Summary Get a subscription by ID
+// @Description Retrieves a single subscription by its UUID
+// @Tags subscriptions
+// @Produce json
+// @Param id path string true "Subscription UUID"
+// @Success 200 {object} dto.SubscriptionResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions/{id} [get]
 func (h *SubscriptionHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("get subscription by id request received", "layer", "handler")
 
@@ -84,6 +111,16 @@ func (h *SubscriptionHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, dto.ToSubscriptionResponse(sub))
 }
 
+// List subscriptions
+// @Summary List all subscriptions
+// @Description Returns a list of all subscriptions with optional filtering
+// @Tags subscriptions
+// @Produce json
+// @Param user_id query string false "Filter by user UUID"
+// @Param service_name query string false "Filter by service name"
+// @Success 200 {array} dto.SubscriptionResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions [get]
 func (h *SubscriptionHandler) List(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("list subscriptions request received", "layer", "handler")
 
@@ -114,6 +151,19 @@ func (h *SubscriptionHandler) List(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, dto.ToSubscriptionResponseList(subs))
 }
 
+// Update subscription
+// @Summary Update a subscription
+// @Description Updates an existing subscription by its UUID
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param id path string true "Subscription UUID"
+// @Param request body dto.UpdateSubscriptionRequest true "Update data"
+// @Success 200 {object} dto.SubscriptionResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions/{id} [put]
 func (h *SubscriptionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("update subscription request received", "layer", "handler")
 
@@ -159,6 +209,16 @@ func (h *SubscriptionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, dto.ToSubscriptionResponse(sub))
 }
 
+// Delete subscription
+// @Summary Delete a subscription
+// @Description Deletes a subscription by its UUID
+// @Tags subscriptions
+// @Param id path string true "Subscription UUID"
+// @Success 204 "No Content"
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions/{id} [delete]
 func (h *SubscriptionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("delete subscription request received", "layer", "handler")
 
@@ -185,6 +245,18 @@ func (h *SubscriptionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Get total cost
+// @Summary Calculate total subscription cost
+// @Description Calculates the sum of all subscription prices from a given start date with optional filters
+// @Tags subscriptions
+// @Produce json
+// @Param user_id query string false "Filter by user UUID"
+// @Param service_name query string false "Filter by service name"
+// @Param start_date query string true "Start date in MM-YYYY format"
+// @Success 200 {object} dto.TotalCostResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Router /api/v1/subscriptions/cost [get]
 func (h *SubscriptionHandler) GetTotalCost(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("get total cost request received", "layer", "handler")
 

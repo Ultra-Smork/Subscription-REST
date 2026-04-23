@@ -18,3 +18,4 @@ for migration in migrations/*.up.sql; do
 done
 
 echo "Migrations completed successfully"
+

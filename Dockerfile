@@ -21,6 +21,8 @@ COPY migrations ./migrations
 COPY migrations/run-migrations.sh /app/run-migrations.sh
 RUN chmod +x /app/run-migrations.sh
 
-EXPOSE 8080
+COPY docs ./docs
+
+EXPOSE 8085
 
 CMD ["./server"]
